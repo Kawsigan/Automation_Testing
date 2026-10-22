@@ -3,8 +3,8 @@
     "base_url": "https://app.keepwisely.com",
     "browser": "Chrome",
     "mode": "Headless",
-    "execution_time": "2026-10-22 16:26:22",
-    "total_duration": "09m 42s"
+    "execution_time": "2026-10-22 18:41:24",
+    "total_duration": "26.89s"
   },
   "tests": [
     {
@@ -15147,6 +15147,48 @@
       "badge_color": "#64748b",
       "traceback": "",
       "logs": "--- Captured log call ---\nINFO     test_user_management:test_user_management.py:455 Executing TC-USER-80: E2E Session Continuity Final Validation\nINFO     test_user_management:test_user_management.py:459 User Management 80-Operation Suite Completed Successfully!"
+    },
+    {
+      "node_id": "tests/test_load.py::TestLoadAndPerformance::test_tc_load_01_auth_concurrency_benchmark",
+      "module": "auth",
+      "test_id": "TC-LOAD-01",
+      "title": "TC-LOAD-01: Auth Concurrency Benchmark",
+      "purpose": "Test ID: TC-LOAD-01",
+      "precondition": "Locust load testing framework installed.",
+      "action": "Simulate 15 concurrent virtual users performing authentication & session handshake for 15s.",
+      "expected": "Application executes successfully without runtime exceptions.",
+      "assertion": "Target elements and data match expected state.",
+      "outcome": "passed",
+      "duration": "15.82s",
+      "screenshot_b64": null,
+      "failure_category": "Execution Error",
+      "plain_cause": "",
+      "business_impact": "",
+      "action_recommendation": "",
+      "badge_color": "#64748b",
+      "traceback": "",
+      "logs": ""
+    },
+    {
+      "node_id": "tests/test_load.py::TestLoadAndPerformance::test_tc_load_02_burst_spike_resilience",
+      "module": "general",
+      "test_id": "TC-LOAD-02",
+      "title": "TC-LOAD-02: Burst Spike Resilience",
+      "purpose": "Test ID: TC-LOAD-02",
+      "precondition": "Locust load testing framework installed.",
+      "action": "Execute high-throughput burst spike test using FastHttpUser for 10s.",
+      "expected": "Application executes successfully without runtime exceptions.",
+      "assertion": "Target elements and data match expected state.",
+      "outcome": "passed",
+      "duration": "10.76s",
+      "screenshot_b64": null,
+      "failure_category": "Execution Error",
+      "plain_cause": "",
+      "business_impact": "",
+      "action_recommendation": "",
+      "badge_color": "#64748b",
+      "traceback": "",
+      "logs": ""
     }
   ]
 }
