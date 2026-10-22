@@ -117,6 +117,10 @@ class DashboardPage(BasePage):
         )
         self.wait_for_angular_loader()
 
+    def navigate_to_dashboard(self) -> None:
+        """Navigates to the main Dashboard view."""
+        self.navigate_to_route("dashboard")
+
     def navigate_to_assets(self) -> None:
         """Navigates to Asset Management (/asset)."""
         self.navigate_to_route("asset")
@@ -141,6 +145,35 @@ class DashboardPage(BasePage):
         """Navigates to Request BOM (/request-bom)."""
         self.navigate_to_route("request-bom")
 
+    def navigate_to_kaizen(self) -> None:
+        """Navigates to Kaizen Suggestions (/kaizen/suggestions)."""
+        self.navigate_to_route("kaizen/suggestions")
+
+    def navigate_to_five_s_audit(self) -> None:
+        """Navigates to 5S Workplace Audits (/five-s-audit/audits)."""
+        self.navigate_to_route("five-s-audit/audits")
+
+    def navigate_to_poka_yoke(self) -> None:
+        """Navigates to Poka-Yoke error proofing (/poka-yoke)."""
+        self.navigate_to_route("poka-yoke")
+
+    def navigate_to_amc_warranty(self) -> None:
+        """Navigates to AMC & Warranty contracts (/amc-management/amc-warranty)."""
+        self.navigate_to_route("amc-management/amc-warranty")
+
     def navigate_to_settings_prefix(self) -> None:
         """Navigates to System Prefix Settings (/settings/prefix)."""
         self.navigate_to_route("settings/prefix")
+
+    def navigate_to_location(self) -> None:
+        """Navigates to Location & Plant Hierarchy (/location)."""
+        self.navigate_to_route("location")
+
+    def navigate_to_floor_plan(self) -> None:
+        """Navigates to Floor Plan & Live Monitor (/floor-plan)."""
+        self.navigate_to_route("floor-plan")
+
+    def navigate_to_masters_checklist(self) -> None:
+        """Navigates to Master Checklists (/masters/checklist)."""
+        self.navigate_to_route("masters/checklist")
+

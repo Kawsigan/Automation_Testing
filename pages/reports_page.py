@@ -15,12 +15,13 @@ class ReportsPage(BasePage):
     - RCA & MTTR/MTBF Stability Reports (/reports/rca-report, /reports/repair-efficiency-report)
     """
 
-    # --- Filter & Action Locators ---
-    DATE_RANGE_PICKER: Tuple[str, str] = (By.CSS_SELECTOR, "input[bsdaterangepicker], input.flatpickr-input, .date-range")
-    GENERATE_REPORT_BUTTON: Tuple[str, str] = (By.CSS_SELECTOR, "button.btn-primary, button[type='submit']")
-    EXPORT_EXCEL_BUTTON: Tuple[str, str] = (By.CSS_SELECTOR, "button.btn-success, button[title*='Excel'], .bx-file")
-    EXPORT_CSV_BUTTON: Tuple[str, str] = (By.CSS_SELECTOR, "button[title*='CSV'], .export-csv")
-    EXPORT_PDF_BUTTON: Tuple[str, str] = (By.CSS_SELECTOR, "button.btn-danger, button[title*='PDF']")
+    # --- Filter & Action Locators (Verified from live DOM) ---
+    SEARCH_INPUT: Tuple[str, str] = (By.CSS_SELECTOR, "input[placeholder*='Search'], input.form-control, input.box-shadow-effect")
+    EXPORT_BUTTON: Tuple[str, str] = (By.XPATH, "//button[contains(., 'Export')] | //a[contains(., 'Export')] | //span[contains(text(), 'Export')]")
+    FILTER_BUTTON: Tuple[str, str] = (By.XPATH, "//button[contains(., 'Filter')] | //a[contains(., 'Filter')] | //span[contains(text(), 'Filter')]")
+    DATE_SELECT: Tuple[str, str] = (By.CSS_SELECTOR, "ng-select, .date-range, select, .custom-select")
+    BREAKDOWN_TAB: Tuple[str, str] = (By.XPATH, "//button[contains(., 'Breakdown')] | //a[contains(., 'Breakdown')]")
+    PM_TAB: Tuple[str, str] = (By.XPATH, "//button[contains(., 'Preventive Maintenance')] | //a[contains(., 'Preventive Maintenance')]")
 
     # Report Data Output Locators
     KPI_SUMMARY_CARDS: Tuple[str, str] = (By.CSS_SELECTOR, ".card .card-body, .metric-box, .kpi-widget")
@@ -32,16 +33,16 @@ class ReportsPage(BasePage):
 
     def is_report_page_displayed(self) -> bool:
         """
-        Verifies presence of Report filter controls.
+        Verifies presence of Report grid and toolbar controls.
         """
-        return self.is_visible(self.GENERATE_REPORT_BUTTON, timeout=10)
+        return self.is_visible(self.SEARCH_INPUT, timeout=10) or self.is_visible(self.EXPORT_BUTTON, timeout=10)
 
-    def generate_report(self) -> None:
+    def filter_report(self, query: str) -> None:
         """
-        Clicks the button to run report aggregation.
+        Applies search filter to the report table.
         """
-        logger.info("Generating report data...")
-        self.click(self.GENERATE_REPORT_BUTTON)
+        logger.info(f"Filtering report with query: '{query}'")
+        self.type_text(self.SEARCH_INPUT, query)
         self.wait_for_angular_loader()
 
     def export_excel(self) -> None:

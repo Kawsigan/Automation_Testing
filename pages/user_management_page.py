@@ -32,6 +32,14 @@ class UserManagementPage(BasePage):
         """
         return self.is_visible(self.SEARCH_INPUT, timeout=10)
 
+    def search_user(self, query: str) -> None:
+        """
+        Filters user directory by query.
+        """
+        logger.info(f"Filtering users with query: '{query}'")
+        self.type_text(self.SEARCH_INPUT, query)
+        self.wait_for_angular_loader()
+
     def open_add_user_modal(self) -> "UserManagementPage":
         """
         Clicks the 'Add User' button.

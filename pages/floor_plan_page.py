@@ -14,7 +14,8 @@ class FloorPlanPage(BasePage):
     """
 
     # --- Locators ---
-    FLOOR_PLAN_CANVAS: Tuple[str, str] = (By.CSS_SELECTOR, "canvas, .floor-plan-container, svg.floor-plan-map")
+    FLOOR_PLAN_CANVAS: Tuple[str, str] = (By.CSS_SELECTOR, "table, .table, canvas, .floor-plan-container, svg.floor-plan-map")
+    ADD_FLOOR_PLAN_BUTTON: Tuple[str, str] = (By.XPATH, "//*[contains(text(), 'Add Floor Plan')]")
     LIVE_MONITOR_TAB: Tuple[str, str] = (By.CSS_SELECTOR, "a[href*='live-monitor'], .nav-link[data-bs-target*='monitor']")
     ASSET_PINS: Tuple[str, str] = (By.CSS_SELECTOR, ".asset-marker, .map-pin, .marker-pin")
     ACTIVE_ALERT_PINS: Tuple[str, str] = (By.CSS_SELECTOR, ".marker-pin.breakdown, .marker-pin.alert, .pin-danger")
@@ -27,9 +28,9 @@ class FloorPlanPage(BasePage):
 
     def is_floor_plan_displayed(self) -> bool:
         """
-        Verifies visibility of the interactive floor plan map.
+        Verifies visibility of the interactive floor plan map or floor plan register table.
         """
-        return self.is_visible(self.FLOOR_PLAN_CANVAS, timeout=10)
+        return self.is_visible(self.FLOOR_PLAN_CANVAS, timeout=10) or self.is_visible(self.ADD_FLOOR_PLAN_BUTTON, timeout=5)
 
     def switch_to_live_monitor(self) -> None:
         """

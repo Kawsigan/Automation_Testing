@@ -180,9 +180,9 @@ class ReportPortal:
             elif line.lower().startswith("assertion:"):
                 assertion = line.split(":", 1)[1].strip()
 
-        # If test_id is empty, extract from name if possible (e.g. TC-AUTH-01)
+        # Extract TC code pattern if present in test function name
+        match = re.search(r"tc[_-][a-z0-9]+[_-][0-9]+", test_name, re.IGNORECASE)
         if not test_id:
-            match = re.search(r"tc[_-][a-z0-9]+[_-][0-9]+", test_name, re.IGNORECASE)
             if match:
                 test_id = match.group(0).upper().replace("_", "-")
             else:
@@ -364,8 +364,9 @@ class ReportPortal:
         circumference = 326.7
         dashoffset = circumference - (circumference * (pass_rate / 100))
 
-        # Generate Test Cards HTML
+        # Generate Test Cards and Grid Table Rows HTML
         test_cards_html = []
+        test_table_rows_html = []
         for idx, t in enumerate(tests, 1):
             outcome = t["outcome"]
             outcome_upper = outcome.upper()
@@ -464,8 +465,9 @@ class ReportPortal:
                 </details>
                 """
 
+            # 1. Card Markup
             card_markup = f"""
-            <div class="test-card {card_accent}" data-module="{mod_key}" data-outcome="{outcome}" data-search="{test_title.lower()} {test_id_code.lower()} {purpose.lower()}">
+            <div class="test-card {card_accent}" data-index="{idx}" data-module="{mod_key}" data-outcome="{outcome}" data-search="{test_title.lower()} {test_id_code.lower()} {purpose.lower()}">
                 <div class="card-header" onclick="toggleCardDetails(this)">
                     <div class="header-left">
                         <span class="status-indicator">{status_icon}</span>
@@ -513,12 +515,67 @@ class ReportPortal:
             """
             test_cards_html.append(card_markup)
 
+            # 2. Grid Table Row Markup
+            row_markup = f"""
+            <tr class="grid-row {card_accent}" data-index="{idx}" data-module="{mod_key}" data-outcome="{outcome}" data-search="{test_title.lower()} {test_id_code.lower()} {purpose.lower()}" onclick="toggleGridRowDetails({idx})">
+                <td class="col-num">{idx}</td>
+                <td class="col-status">{status_badge}</td>
+                <td class="col-id"><span class="test-id-pill">{test_id_code}</span></td>
+                <td class="col-module"><span class="module-chip-sm">{mod_meta['icon']} {mod_meta['name']}</span></td>
+                <td class="col-title">
+                    <div class="grid-title-text">{test_title}</div>
+                    <div class="grid-purpose-text">{purpose}</div>
+                </td>
+                <td class="col-duration"><span class="duration-badge-sm">⏱️ {duration_str}</span></td>
+                <td class="col-actions">
+                    <button class="grid-expand-btn" id="expandBtn-{idx}" aria-label="Toggle details">▾</button>
+                </td>
+            </tr>
+            <tr class="grid-details-row" id="gridDetails-{idx}" style="display: none;">
+                <td colspan="7">
+                    <div class="grid-expanded-body">
+                        <div class="business-flow-grid">
+                            <div class="flow-step">
+                                <span class="flow-label">1. Precondition</span>
+                                <p class="flow-value">{precondition}</p>
+                            </div>
+                            <div class="flow-step">
+                                <span class="flow-label">2. Action Performed</span>
+                                <p class="flow-value">{action}</p>
+                            </div>
+                            <div class="flow-step">
+                                <span class="flow-label">3. Expected Result</span>
+                                <p class="flow-value">{expected}</p>
+                            </div>
+                            <div class="flow-step">
+                                <span class="flow-label">4. Business Assertion</span>
+                                <p class="flow-value">{assertion}</p>
+                            </div>
+                        </div>
+                        {failure_html}
+                        {technical_html}
+                    </div>
+                </td>
+            </tr>
+            """
+            test_table_rows_html.append(row_markup)
+
         tests_rendered_markup = "\n".join(test_cards_html) if test_cards_html else """
         <div class="empty-state">
             <div class="empty-icon">📂</div>
             <h3>No Test Results Match Current Filters</h3>
             <p>Try resetting the search query or selecting a different module tab above.</p>
         </div>
+        """
+
+        grid_rows_rendered_markup = "\n".join(test_table_rows_html) if test_table_rows_html else """
+        <tr>
+            <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                <div style="font-size: 32px; margin-bottom: 8px;">📂</div>
+                <div style="font-weight: 600; color: var(--text-primary);">No Test Results Match Current Filters</div>
+                <div>Try resetting the search query or selecting a different module tab above.</div>
+            </td>
+        </tr>
         """
 
         # Generate Module Cards HTML
@@ -1062,6 +1119,283 @@ class ReportPortal:
             display: flex;
             align-items: center;
             gap: 6px;
+        }}
+
+        /* View Switcher */
+        .view-switch-group {{
+            display: inline-flex;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 3px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-color);
+            margin-left: auto;
+        }}
+
+        .view-switch-btn {{
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            padding: 5px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.15s ease;
+        }}
+
+        .view-switch-btn.active {{
+            background: var(--accent-blue);
+            color: #090d16;
+            font-weight: 700;
+        }}
+
+        /* Pagination Bar */
+        .pagination-bar {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 10px 18px;
+            margin: 16px 0;
+            box-shadow: var(--shadow-card);
+        }}
+
+        .pagination-info {{
+            font-size: 13px;
+            color: var(--text-secondary);
+        }}
+
+        .pagination-info strong {{
+            color: var(--text-primary);
+        }}
+
+        .pagination-actions {{
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 14px;
+        }}
+
+        .page-size-picker {{
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }}
+
+        .page-size-select {{
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: var(--radius-sm);
+            padding: 4px 8px;
+            font-size: 12px;
+            outline: none;
+            cursor: pointer;
+        }}
+
+        .page-size-select option {{
+            background: #111827;
+            color: #f8fafc;
+        }}
+
+        .pagination-nav-group {{
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }}
+
+        .page-nav-btn {{
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            min-width: 32px;
+            height: 32px;
+            padding: 0 8px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
+        }}
+
+        .page-nav-btn:hover:not(:disabled) {{
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            border-color: var(--border-highlight);
+        }}
+
+        .page-nav-btn.active {{
+            background: var(--accent-blue);
+            color: #090d16;
+            border-color: var(--accent-blue);
+            font-weight: 700;
+        }}
+
+        .page-nav-btn:disabled {{
+            opacity: 0.35;
+            cursor: not-allowed;
+        }}
+
+        .page-ellipsis {{
+            color: var(--text-muted);
+            padding: 0 4px;
+            font-size: 12px;
+        }}
+
+        /* Grid Table View */
+        .grid-table-container {{
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            overflow-x: auto;
+            box-shadow: var(--shadow-card);
+            margin-bottom: 16px;
+        }}
+
+        .report-data-grid {{
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            text-align: left;
+        }}
+
+        .report-data-grid thead th {{
+            background: rgba(255, 255, 255, 0.02);
+            border-bottom: 1px solid var(--border-color);
+            padding: 12px 14px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }}
+
+        .grid-row {{
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            transition: background 0.15s;
+            cursor: pointer;
+        }}
+
+        .grid-row:hover {{
+            background: rgba(255, 255, 255, 0.03);
+        }}
+
+        .grid-row.expanded {{
+            background: rgba(56, 189, 248, 0.05);
+        }}
+
+        .grid-row td {{
+            padding: 12px 14px;
+            vertical-align: middle;
+        }}
+
+        .col-num {{
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+            font-size: 11px;
+            width: 45px;
+        }}
+
+        .col-status {{
+            width: 110px;
+        }}
+
+        .col-id {{
+            width: 130px;
+        }}
+
+        .test-id-pill {{
+            font-family: var(--font-mono);
+            font-size: 11.5px;
+            font-weight: 700;
+            color: var(--accent-blue);
+            background: rgba(56, 189, 248, 0.08);
+            padding: 2px 7px;
+            border-radius: 4px;
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            white-space: nowrap;
+        }}
+
+        .col-module {{
+            width: 180px;
+        }}
+
+        .module-chip-sm {{
+            font-size: 11.5px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }}
+
+        .col-title {{
+            max-width: 480px;
+        }}
+
+        .grid-title-text {{
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }}
+
+        .grid-purpose-text {{
+            font-size: 12px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 520px;
+        }}
+
+        .col-duration {{
+            width: 90px;
+        }}
+
+        .duration-badge-sm {{
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }}
+
+        .col-actions {{
+            width: 60px;
+            text-align: center;
+        }}
+
+        .grid-expand-btn {{
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 13px;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }}
+
+        .grid-row.expanded .grid-expand-btn {{
+            transform: rotate(180deg);
+        }}
+
+        .grid-details-row td {{
+            padding: 0;
+            background: rgba(0, 0, 0, 0.25);
+            border-bottom: 1px solid var(--border-color);
+        }}
+
+        .grid-expanded-body {{
+            padding: 16px 20px;
         }}
 
         /* Test Cards */
@@ -1655,13 +1989,90 @@ class ReportPortal:
                 <div class="active-filter-indicator" id="filterStatusIndicator">
                     Showing <strong>{total_tests}</strong> test scenarios across all modules
                 </div>
+
+                <div class="view-switch-group">
+                    <button class="view-switch-btn active" id="viewGridBtn" onclick="switchView('grid')" title="Table Data Grid with Pagination">
+                        <span>▤</span>
+                        <span>Data Grid</span>
+                    </button>
+                    <button class="view-switch-btn" id="viewCardBtn" onclick="switchView('card')" title="Diagnostic Cards Stream">
+                        <span>▦</span>
+                        <span>Card View</span>
+                    </button>
+                </div>
             </div>
         </section>
 
-        <!-- Tests Stream -->
-        <section class="tests-stream" id="testStream">
+        <!-- Top Pagination Bar -->
+        <div class="pagination-bar" id="paginationTop">
+            <div class="pagination-info">
+                <span>Showing <strong id="pageRangeStartTop">1</strong>–<strong id="pageRangeEndTop">20</strong> of <strong id="totalFilteredCountTop">{total_tests}</strong> tests</span>
+            </div>
+            <div class="pagination-actions">
+                <div class="page-size-picker">
+                    <label for="pageSizeSelectTop">Per page:</label>
+                    <select id="pageSizeSelectTop" class="page-size-select" onchange="changePageSize(this.value)">
+                        <option value="10">10</option>
+                        <option value="20" selected>20</option>
+                        <option value="50">50</option>
+                        <option value="80">80 (1 Module)</option>
+                        <option value="100">100</option>
+                        <option value="all">All tests</option>
+                    </select>
+                </div>
+                <div class="pagination-nav-group" id="paginationNavTop">
+                    <!-- Injected via JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Paginated Data Grid Table View -->
+        <div class="grid-table-container" id="gridTableContainer">
+            <table class="report-data-grid">
+                <thead>
+                    <tr>
+                        <th class="col-num">#</th>
+                        <th class="col-status">Status</th>
+                        <th class="col-id">Test ID</th>
+                        <th class="col-module">Module</th>
+                        <th class="col-title">Test Scenario &amp; Objective</th>
+                        <th class="col-duration">Duration</th>
+                        <th class="col-actions">Details</th>
+                    </tr>
+                </thead>
+                <tbody id="gridTableBody">
+                    {grid_rows_rendered_markup}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Diagnostic Cards View (Hidden by default, can toggle) -->
+        <section class="tests-stream" id="testStream" style="display: none;">
             {tests_rendered_markup}
         </section>
+
+        <!-- Bottom Pagination Bar -->
+        <div class="pagination-bar" id="paginationBottom">
+            <div class="pagination-info">
+                <span>Showing <strong id="pageRangeStartBottom">1</strong>–<strong id="pageRangeEndBottom">20</strong> of <strong id="totalFilteredCountBottom">{total_tests}</strong> tests</span>
+            </div>
+            <div class="pagination-actions">
+                <div class="page-size-picker">
+                    <label for="pageSizeSelectBottom">Per page:</label>
+                    <select id="pageSizeSelectBottom" class="page-size-select" onchange="changePageSize(this.value)">
+                        <option value="10">10</option>
+                        <option value="20" selected>20</option>
+                        <option value="50">50</option>
+                        <option value="80">80 (1 Module)</option>
+                        <option value="100">100</option>
+                        <option value="all">All tests</option>
+                    </select>
+                </div>
+                <div class="pagination-nav-group" id="paginationNavBottom">
+                    <!-- Injected via JavaScript -->
+                </div>
+            </div>
+        </div>
 
     </main>
 
@@ -1689,25 +2100,110 @@ class ReportPortal:
         let currentStatus = 'all';
         let searchQuery = '';
         let allExpanded = false;
+        let currentView = 'grid';
+        let currentPage = 1;
+        let pageSize = 20;
+
+        function switchView(viewMode) {{
+            currentView = viewMode;
+            const gridContainer = document.getElementById('gridTableContainer');
+            const cardStream = document.getElementById('testStream');
+            const gridBtn = document.getElementById('viewGridBtn');
+            const cardBtn = document.getElementById('viewCardBtn');
+
+            if (viewMode === 'grid') {{
+                gridContainer.style.display = 'block';
+                cardStream.style.display = 'none';
+                gridBtn.classList.add('active');
+                cardBtn.classList.remove('active');
+            }} else {{
+                gridContainer.style.display = 'none';
+                cardStream.style.display = 'flex';
+                cardBtn.classList.add('active');
+                gridBtn.classList.remove('active');
+            }}
+            applyFilters(false);
+        }}
+
+        function changePageSize(newVal) {{
+            if (newVal === 'all') {{
+                pageSize = 'all';
+            }} else {{
+                pageSize = parseInt(newVal, 10) || 20;
+            }}
+            const topSelect = document.getElementById('pageSizeSelectTop');
+            const btmSelect = document.getElementById('pageSizeSelectBottom');
+            if (topSelect && topSelect.value !== String(newVal)) topSelect.value = String(newVal);
+            if (btmSelect && btmSelect.value !== String(newVal)) btmSelect.value = String(newVal);
+
+            applyFilters(true);
+        }}
+
+        function goToPage(page) {{
+            currentPage = page;
+            applyFilters(false);
+            const pagTop = document.getElementById('paginationTop');
+            if (pagTop) {{
+                pagTop.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
+            }}
+        }}
+
+        function toggleGridRowDetails(idx) {{
+            const row = document.querySelector(`.grid-row[data-index="${{idx}}"]`);
+            const detailsRow = document.getElementById(`gridDetails-${{idx}}`);
+            const expandBtn = document.getElementById(`expandBtn-${{idx}}`);
+            if (!detailsRow) return;
+
+            const isHidden = detailsRow.style.display === 'none' || detailsRow.style.display === '';
+            if (isHidden) {{
+                detailsRow.style.display = 'table-row';
+                if (row) row.classList.add('expanded');
+                if (expandBtn) expandBtn.innerText = '▴';
+            }} else {{
+                detailsRow.style.display = 'none';
+                if (row) row.classList.remove('expanded');
+                if (expandBtn) expandBtn.innerText = '▾';
+            }}
+        }}
 
         function toggleCardDetails(headerEl) {{
             const card = headerEl.closest('.test-card');
-            card.classList.toggle('expanded');
+            if (card) card.classList.toggle('expanded');
         }}
 
         function toggleAllCards() {{
             allExpanded = !allExpanded;
-            const cards = document.querySelectorAll('.test-card');
-            cards.forEach(c => {{
-                if (allExpanded) c.classList.add('expanded');
-                else c.classList.remove('expanded');
-            }});
-            document.getElementById('expandAllText').innerText = allExpanded ? 'Collapse All' : 'Expand All';
+            if (currentView === 'grid') {{
+                const visibleRows = document.querySelectorAll('.grid-row');
+                visibleRows.forEach(r => {{
+                    if (r.style.display !== 'none') {{
+                        const idx = r.dataset.index;
+                        const details = document.getElementById(`gridDetails-${{idx}}`);
+                        const btn = document.getElementById(`expandBtn-${{idx}}`);
+                        if (allExpanded) {{
+                            r.classList.add('expanded');
+                            if (details) details.style.display = 'table-row';
+                            if (btn) btn.innerText = '▴';
+                        }} else {{
+                            r.classList.remove('expanded');
+                            if (details) details.style.display = 'none';
+                            if (btn) btn.innerText = '▾';
+                        }}
+                    }}
+                }});
+            }} else {{
+                const cards = document.querySelectorAll('.test-card');
+                cards.forEach(c => {{
+                    if (allExpanded) c.classList.add('expanded');
+                    else c.classList.remove('expanded');
+                }});
+            }}
+            const expandText = document.getElementById('expandAllText');
+            if (expandText) expandText.innerText = allExpanded ? 'Collapse All' : 'Expand All';
         }}
 
         function filterByModule(modKey) {{
             currentModule = modKey;
-            // Update active state on module cards
             document.querySelectorAll('.module-card').forEach(card => {{
                 if (card.dataset.module === modKey) {{
                     card.classList.add('active');
@@ -1717,13 +2213,12 @@ class ReportPortal:
             }});
 
             const allBtn = document.getElementById('btnAllModules');
-            if (modKey === 'all') {{
-                allBtn.classList.add('active');
-            }} else {{
-                allBtn.classList.remove('active');
+            if (allBtn) {{
+                if (modKey === 'all') allBtn.classList.add('active');
+                else allBtn.classList.remove('active');
             }}
 
-            applyFilters();
+            applyFilters(true);
         }}
 
         function filterByStatus(statusKey) {{
@@ -1735,38 +2230,146 @@ class ReportPortal:
                     btn.classList.remove('active');
                 }}
             }});
-            applyFilters();
+            applyFilters(true);
         }}
 
         function handleSearch(query) {{
             searchQuery = query.toLowerCase().trim();
-            applyFilters();
+            applyFilters(true);
         }}
 
-        function applyFilters() {{
-            const cards = document.querySelectorAll('.test-card');
-            let visibleCount = 0;
+        function renderPaginationNav(containerId, totalPages, curPage) {{
+            const navEl = document.getElementById(containerId);
+            if (!navEl) return;
 
-            cards.forEach(card => {{
-                const cardMod = card.dataset.module;
-                const cardOutcome = card.dataset.outcome;
-                const cardSearch = card.dataset.search || '';
+            if (totalPages <= 1) {{
+                navEl.innerHTML = '';
+                return;
+            }}
 
-                const matchesMod = (currentModule === 'all' || cardMod === currentModule);
-                const matchesStatus = (currentStatus === 'all' || cardOutcome === currentStatus);
-                const matchesSearch = (!searchQuery || cardSearch.includes(searchQuery));
+            let html = '';
+            const prevDisabled = curPage <= 1 ? 'disabled' : '';
+            html += `<button class="page-nav-btn" ${{prevDisabled}} onclick="goToPage(1)" title="First Page">«</button>`;
+            html += `<button class="page-nav-btn" ${{prevDisabled}} onclick="goToPage(${{curPage - 1}})" title="Previous Page">‹</button>`;
+
+            let pages = [];
+            const delta = 2;
+            const left = Math.max(1, curPage - delta);
+            const right = Math.min(totalPages, curPage + delta);
+
+            if (left > 1) {{
+                pages.push(1);
+                if (left > 2) pages.push('...');
+            }}
+
+            for (let i = left; i <= right; i++) {{
+                pages.push(i);
+            }}
+
+            if (right < totalPages) {{
+                if (right < totalPages - 1) pages.push('...');
+                pages.push(totalPages);
+            }}
+
+            pages.forEach(p => {{
+                if (p === '...') {{
+                    html += `<span class="page-ellipsis">&hellip;</span>`;
+                }} else {{
+                    const activeCls = p === curPage ? 'active' : '';
+                    html += `<button class="page-nav-btn ${{activeCls}}" onclick="goToPage(${{p}})">${{p}}</button>`;
+                }}
+            }});
+
+            const nextDisabled = curPage >= totalPages ? 'disabled' : '';
+            html += `<button class="page-nav-btn" ${{nextDisabled}} onclick="goToPage(${{curPage + 1}})" title="Next Page">›</button>`;
+            html += `<button class="page-nav-btn" ${{nextDisabled}} onclick="goToPage(${{totalPages}})" title="Last Page">»</button>`;
+
+            navEl.innerHTML = html;
+        }}
+
+        function applyFilters(resetPage = false) {{
+            if (resetPage) currentPage = 1;
+
+            const gridRows = Array.from(document.querySelectorAll('.grid-row'));
+            const cards = Array.from(document.querySelectorAll('.test-card'));
+
+            const matchingIndices = [];
+            gridRows.forEach(row => {{
+                const mod = row.dataset.module;
+                const outcome = row.dataset.outcome;
+                const search = row.dataset.search || '';
+
+                const matchesMod = (currentModule === 'all' || mod === currentModule);
+                const matchesStatus = (currentStatus === 'all' || outcome === currentStatus);
+                const matchesSearch = (!searchQuery || search.includes(searchQuery));
 
                 if (matchesMod && matchesStatus && matchesSearch) {{
+                    matchingIndices.push(row.dataset.index);
+                }}
+            }});
+
+            const totalMatching = matchingIndices.length;
+            const effPageSize = pageSize === 'all' ? (totalMatching || 1) : pageSize;
+            const totalPages = Math.max(1, Math.ceil(totalMatching / effPageSize));
+
+            if (currentPage > totalPages) currentPage = totalPages;
+            if (currentPage < 1) currentPage = 1;
+
+            const startIdx = totalMatching === 0 ? 0 : (currentPage - 1) * effPageSize;
+            const endIdx = pageSize === 'all' ? totalMatching : Math.min(startIdx + effPageSize, totalMatching);
+
+            const visibleSet = new Set(matchingIndices.slice(startIdx, endIdx));
+
+            // Render Grid Rows
+            gridRows.forEach(row => {{
+                const idx = row.dataset.index;
+                const detailsRow = document.getElementById(`gridDetails-${{idx}}`);
+                if (visibleSet.has(idx)) {{
+                    row.style.display = 'table-row';
+                }} else {{
+                    row.style.display = 'none';
+                    if (detailsRow) detailsRow.style.display = 'none';
+                    row.classList.remove('expanded');
+                }}
+            }});
+
+            // Render Test Cards
+            cards.forEach(card => {{
+                const idx = card.dataset.index;
+                if (visibleSet.has(idx)) {{
                     card.style.display = 'block';
-                    visibleCount++;
                 }} else {{
                     card.style.display = 'none';
                 }}
             }});
 
+            // Update range indicators
+            const rangeStart = totalMatching === 0 ? 0 : startIdx + 1;
+            const rangeEnd = endIdx;
+
+            const setElText = (id, txt) => {{
+                const el = document.getElementById(id);
+                if (el) el.innerText = txt;
+            }};
+
+            setElText('pageRangeStartTop', rangeStart);
+            setElText('pageRangeEndTop', rangeEnd);
+            setElText('totalFilteredCountTop', totalMatching);
+
+            setElText('pageRangeStartBottom', rangeStart);
+            setElText('pageRangeEndBottom', rangeEnd);
+            setElText('totalFilteredCountBottom', totalMatching);
+
+            // Update status indicator
             const indicator = document.getElementById('filterStatusIndicator');
             let modLabel = currentModule === 'all' ? 'all modules' : `the "${{currentModule}}" module`;
-            indicator.innerHTML = `Showing <strong>${{visibleCount}}</strong> test scenario${{visibleCount !== 1 ? 's' : ''}} in ${{modLabel}}`;
+            if (indicator) {{
+                indicator.innerHTML = `Showing <strong>${{totalMatching}}</strong> test scenario${{totalMatching !== 1 ? 's' : ''}} in ${{modLabel}}`;
+            }}
+
+            // Render pagination nav controls
+            renderPaginationNav('paginationNavTop', totalPages, currentPage);
+            renderPaginationNav('paginationNavBottom', totalPages, currentPage);
         }}
 
         function openLightbox(b64Data, title) {{
@@ -1797,6 +2400,9 @@ class ReportPortal:
         document.addEventListener('keydown', function(e) {{
             if (e.key === 'Escape') closeLightbox();
         }});
+
+        // Initialize pagination on DOM ready
+        applyFilters(true);
     </script>
 </body>
 </html>

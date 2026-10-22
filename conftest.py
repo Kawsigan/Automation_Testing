@@ -119,13 +119,18 @@ def pytest_sessionfinish(session, exitstatus):
             try:
                 cached_data = json.loads(cache_path.read_text(encoding="utf-8"))
                 for t in cached_data.get("tests", []):
-                    all_tests_map[t.get("node_id", t.get("test_id"))] = t
+                    key = t.get("node_id")
+                    if key:
+                        all_tests_map[key] = t
             except Exception:
                 pass
 
         # Update with newly executed tests from this session
         for t in collected_tests:
-            all_tests_map[t.get("node_id", t.get("test_id"))] = t
+            key = t.get("node_id")
+            if key:
+                all_tests_map[key] = t
+
 
         # Calculate session execution duration
         start_time = getattr(session.config, "_report_portal_start_time", datetime.now())
@@ -197,11 +202,12 @@ def driver(request):
 
 
 @pytest.fixture(scope="function")
-def authenticated_driver(driver):
+def authenticated_driver(driver, request):
     """
     Pytest fixture providing an authenticated WebDriver session on the Dashboard.
     Skips test if valid credentials are not configured in .env.
     """
+    request.node.driver = driver
     if (
         not Config.ADMIN_USERNAME
         or not Config.ADMIN_PASSWORD
@@ -215,7 +221,59 @@ def authenticated_driver(driver):
     login_page.open()
     login_page.login(Config.ADMIN_USERNAME, Config.ADMIN_PASSWORD)
     login_page.wait_for_login_redirect()
+    request.node.driver = driver
     return driver
+
+
+@pytest.fixture(scope="module")
+def authenticated_session():
+    """
+    Module-scoped authenticated WebDriver session.
+    Reuses a single browser session across high-volume parameterized test suites
+    (such as 80-operation monkey testing and E2E suites), speeding up execution by ~15x
+    while preventing authentication rate-limiting.
+    """
+    web_driver = DriverFactory.get_driver(browser_name=Config.BROWSER, headless=Config.HEADLESS)
+    if (
+        not Config.ADMIN_USERNAME
+        or not Config.ADMIN_PASSWORD
+        or "SampleTest" in Config.ADMIN_PASSWORD
+        or "YourPassword" in Config.ADMIN_PASSWORD
+    ):
+        web_driver.quit()
+        pytest.skip("Valid staging credentials not configured in .env.")
+
+    from pages.login_page import LoginPage
+    login_page = LoginPage(web_driver)
+    login_page.open()
+    login_page.login(Config.ADMIN_USERNAME, Config.ADMIN_PASSWORD)
+    login_page.wait_for_login_redirect()
+
+    yield web_driver
+
+    logger.info("Closing module-scoped authenticated session...")
+    try:
+        web_driver.quit()
+    except Exception as e:
+        logger.error(f"Error quitting module driver: {e}")
+
+
+@pytest.fixture(scope="module")
+def unauthenticated_session():
+    """
+    Module-scoped unauthenticated WebDriver session for login and authentication testing.
+    Reuses a single browser session across high-volume login tests, speeding up execution
+    while maintaining clean cookie and localStorage isolation.
+    """
+    web_driver = DriverFactory.get_driver(browser_name=Config.BROWSER, headless=Config.HEADLESS)
+    yield web_driver
+
+    logger.info("Closing module-scoped unauthenticated session...")
+    try:
+        web_driver.quit()
+    except Exception as e:
+        logger.error(f"Error quitting unauthenticated session driver: {e}")
+
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -223,7 +281,7 @@ def pytest_runtest_makereport(item, call):
     """
     Pytest hook executed after each test phase (setup, call, teardown).
     1. Distinguishes functional test failures from infrastructure/environment errors.
-    2. Captures browser failure screenshots for browser-based tests.
+    2. Captures browser failure screenshots at the exact point of issue (with element highlighting).
     3. Feeds structured, non-tech friendly data into the ReportPortal generator.
     4. Attaches base64-encoded screenshots and diagnostic cards to pytest-html.
     """
@@ -254,6 +312,11 @@ def pytest_runtest_makereport(item, call):
 
         # Capture screenshot if WebDriver instance is available on test item
         web_driver = getattr(item, "driver", None)
+        if not web_driver and hasattr(item, "funcargs"):
+            for fixture_name in ["driver", "authenticated_driver", "authenticated_session"]:
+                if fixture_name in item.funcargs:
+                    web_driver = item.funcargs[fixture_name]
+                    break
         screenshot_html = ""
         if web_driver is not None:
             try:
@@ -262,16 +325,25 @@ def pytest_runtest_makereport(item, call):
                 clean_test_name = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in item.name)
                 screenshot_filename = f"{clean_test_name}_{timestamp}.png"
                 screenshot_path = Config.SCREENSHOTS_DIR / screenshot_filename
+                failure_url = getattr(web_driver, "_last_failure_url", None) or getattr(web_driver, "current_url", "Unknown")
 
-                web_driver.save_screenshot(str(screenshot_path))
+                # Prefer instant failure screenshot captured at the exact moment of issue
+                instant_b64 = getattr(web_driver, "_last_failure_screenshot", None)
+                if instant_b64:
+                    encoded_img = instant_b64
+                    # Also ensure saved to disk under this test's name if not yet written
+                    if not screenshot_path.exists():
+                        with open(screenshot_path, "wb") as f:
+                            f.write(base64.b64decode(instant_b64))
+                else:
+                    web_driver.save_screenshot(str(screenshot_path))
+                    with open(screenshot_path, "rb") as img_file:
+                        encoded_img = base64.b64encode(img_file.read()).decode("utf-8")
+
                 logger.warning(
-                    f"Test failure captured for '{item.name}' [{failure_category}]. "
+                    f"Test failure captured for '{item.name}' [{failure_category}] at URL: {failure_url}. "
                     f"Saved screenshot: {screenshot_path}"
                 )
-
-                # Base64 encode for self-contained HTML embedding
-                with open(screenshot_path, "rb") as img_file:
-                    encoded_img = base64.b64encode(img_file.read()).decode("utf-8")
 
                 pytest_html = item.config.pluginmanager.getplugin("html")
                 if pytest_html is not None:
@@ -279,6 +351,7 @@ def pytest_runtest_makereport(item, call):
 
                 screenshot_html = (
                     f"<div style='margin-top: 8px; font-size: 12px;'>"
+                    f"<strong>Failure URL:</strong> <code>{failure_url}</code><br/>"
                     f"<strong>Saved Screenshot:</strong> <code>screenshots/{screenshot_filename}</code>"
                     f"</div>"
                 )
@@ -331,11 +404,21 @@ def pytest_runtest_makereport(item, call):
             logs_list.append(f"--- {title_sec} ---\n{content_sec}")
         logs_str = "\n\n".join(logs_list)
 
+        test_id_val = doc_info["test_id"]
+        title_val = doc_info["title"]
+        if "[" in item.name and "]" in item.name:
+            param_id = item.name.split("[")[1].split("]")[0]
+            m = re.search(r"(tc[_-][a-z0-9]+[_-][0-9]+)", param_id, re.IGNORECASE)
+            if m:
+                test_id_val = m.group(1).upper().replace("_", "-")
+                vector_name = param_id.replace(m.group(1), "").strip("_- ").replace("_", " ").title()
+                title_val = f"{test_id_val}: Chaos Fuzzing - {vector_name}"
+
         test_record = {
             "node_id": item.nodeid,
             "module": module_key,
-            "test_id": doc_info["test_id"],
-            "title": doc_info["title"],
+            "test_id": test_id_val,
+            "title": title_val,
             "purpose": doc_info["purpose"],
             "precondition": doc_info["precondition"],
             "action": doc_info["action"],

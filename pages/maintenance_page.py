@@ -31,11 +31,21 @@ class MaintenancePage(BasePage):
     def __init__(self, driver):
         super().__init__(driver)
 
+    CREATE_TICKET_BUTTON = CREATE_REQUEST_BUTTON
+
     def is_service_requests_table_displayed(self) -> bool:
         """
         Verifies presence of the service requests grid.
         """
         return self.is_visible(self.SEARCH_INPUT, timeout=10)
+
+    def search_ticket(self, query: str) -> None:
+        """
+        Filters service requests by query.
+        """
+        logger.info(f"Filtering service requests with query: '{query}'")
+        self.type_text(self.SEARCH_INPUT, query)
+        self.wait_for_angular_loader()
 
     def open_create_request_modal(self) -> "MaintenancePage":
         """
@@ -45,6 +55,10 @@ class MaintenancePage(BasePage):
         self.click(self.CREATE_REQUEST_BUTTON)
         self.wait_for_angular_loader()
         return self
+
+    def open_create_ticket_modal(self) -> "MaintenancePage":
+        """Alias for open_create_request_modal."""
+        return self.open_create_request_modal()
 
     def get_tickets_count(self) -> int:
         """

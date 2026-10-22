@@ -22,6 +22,8 @@ class ProcurementPage(BasePage):
     REQUEST_BOM_BUTTON: Tuple[str, str] = (By.CSS_SELECTOR, "button.btn-primary, button[data-bs-target*='bom'], .add-btn")
     BOM_TABLE_ROWS: Tuple[str, str] = (By.CSS_SELECTOR, "table tbody tr, mat-row")
 
+    SEARCH_INPUT: Tuple[str, str] = PO_SEARCH_INPUT
+
     def __init__(self, driver):
         super().__init__(driver)
 
@@ -30,6 +32,14 @@ class ProcurementPage(BasePage):
         Verifies visibility of Purchase Order grid.
         """
         return self.is_visible(self.PO_SEARCH_INPUT, timeout=10)
+
+    def search_po(self, query: str) -> None:
+        """
+        Filters purchase orders by query.
+        """
+        logger.info(f"Filtering PO with query: '{query}'")
+        self.type_text(self.SEARCH_INPUT, query)
+        self.wait_for_angular_loader()
 
     def open_create_po_modal(self) -> "ProcurementPage":
         """

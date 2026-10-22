@@ -36,6 +36,7 @@ class DriverFactory:
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")
             options.add_argument("--disable-gpu")
+            options.set_capability("goog:loggingPrefs", {"browser": "ALL"})
             if is_headless:
                 options.add_argument("--headless=new")
             driver = webdriver.Chrome(options=options)
