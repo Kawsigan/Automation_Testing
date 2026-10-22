@@ -1,0 +1,31 @@
+# Virtual environment
+venv/
+env/
+ENV/
+
+# Environment secrets
+.env
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Test reports & execution evidence
+reports/*.html
+reports/assets/
+screenshots/*.png
+logs/*.log
+
+# Preserve empty directories in Git
+!reports/.gitkeep
+!screenshots/.gitkeep
+!logs/.gitkeep
+
+# IDE configuration
+.vscode/
+.idea/
+
+# Scratch investigation scripts
+scratch/

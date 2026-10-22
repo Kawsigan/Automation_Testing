@@ -1,0 +1,58 @@
+{
+  "invalid_logins": [
+    {
+      "description": "Non-existent user email with standard password",
+      "username": "nonexistent_qa_user_99@keepwisely.com",
+      "password": "WrongPassword123!"
+    },
+    {
+      "description": "Valid format user with wrong password",
+      "username": "admin@keepwisely.com",
+      "password": "IncorrectPassword999!"
+    },
+    {
+      "description": "Numeric only username",
+      "username": "9998887776",
+      "password": "InvalidPassword!"
+    }
+  ],
+  "malformed_emails": [
+    {
+      "email": "plainaddress_without_at",
+      "description": "Missing @ and domain"
+    },
+    {
+      "email": "user@domain..com",
+      "description": "Double dot in domain"
+    },
+    {
+      "email": "@missingusername.com",
+      "description": "Missing recipient username"
+    },
+    {
+      "email": "user name@domain.com",
+      "description": "Embedded space in email"
+    }
+  ],
+  "boundary_inputs": {
+    "long_string_128": "ThisIsAVeryLongStringExceedingStandardLengthsForBoundaryTestingPurposeToEnsureNoBufferOverflowOrLayoutBreakageOccurs12345678901234",
+    "special_characters": "!@#$%^&*()_+-=[]{}|;':\",./<>?`~",
+    "sql_injection_attempt": "' OR '1'='1' --",
+    "xss_script_attempt": "<script>alert('XSS')</script>",
+    "unicode_text": "機械保全 メンテナンス CMMS 测试"
+  },
+  "asset_sample_data": {
+    "valid_asset": {
+      "asset_tag": "AST-QA-2026-001",
+      "asset_name": "Hydraulic Stamping Press 01",
+      "category": "Mechanical",
+      "location": "Shop Floor A"
+    }
+  },
+  "service_request_sample_data": {
+    "valid_ticket": {
+      "severity": "Critical",
+      "problem_description": "Main hydraulic motor overheating. Pressure drop observed below 120 PSI."
+    }
+  }
+}
